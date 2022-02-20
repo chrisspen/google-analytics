@@ -2,10 +2,12 @@
 
 import os
 from copy import copy
+from io import StringIO
 
 import httplib2
 import oauth2client
 import inspector
+from oauth2client.service_account import ServiceAccountCredentials
 
 from . import keyring
 from .. import utils
@@ -160,11 +162,14 @@ class Credentials(object):
             return None
         else:
             if self.type == 2:
-                return oauth2client.client.SignedJwtAssertionCredentials(
-                    service_account_name=self.client_email,
-                    private_key=self.private_key.encode('utf-8'),
-                    scope='https://www.googleapis.com/auth/analytics.readonly',
-                    )
+                keyfile = StringIO()
+                keyfile.write(self.private_key)
+                keyfile.seek(0)
+                return ServiceAccountCredentials.from_p12_keyfile_buffer(
+                    self.client_email,
+                    keyfile,
+                    scopes=['https://www.googleapis.com/auth/analytics.readonly']
+                )
             else:
                 return oauth2client.client.OAuth2Credentials(
                     access_token=self.access_token,
@@ -207,7 +212,7 @@ def normalize(fn):
     @inspector.changes(fn)
     def normalized_fn(client_id=None, client_secret=None,
             access_token=None, refresh_token=None, identity=None):
-        
+
         if isinstance(client_id, Credentials):
             credentials = client_id
         else:
